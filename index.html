@@ -114,7 +114,7 @@
     <p class="hint" style="margin:0 0 8px">👆 写真の上の文字を指でつかんで、好きな位置に動かせます。</p>
     <canvas id="cv" class="preview hidden"></canvas>
     <div class="row" style="margin-top:12px">
-      <button id="shareBtn" class="btn primary" disabled>📤 LINEで送る</button>
+      <button id="shareBtn" class="btn primary" disabled>📤 共有する</button>
       <button id="saveBtn" class="btn" disabled>💾 端末に保存</button>
     </div>
     <div id="msg" class="msg"></div>
@@ -382,10 +382,10 @@
     const b = await toBlob();
     const file = new File([b], fileName(), { type: 'image/jpeg' });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try { await navigator.share({ files: [file] }); setMsg('送信画面を開きました。', 'ok'); }
-      catch (e) { if (e.name !== 'AbortError') setMsg('共有できませんでした。「端末に保存」してからLINEで送ってください。', 'err'); }
+      try { await navigator.share({ files: [file] }); setMsg('共有画面を開きました。', 'ok'); }
+      catch (e) { if (e.name !== 'AbortError') setMsg('共有できませんでした。「端末に保存」してから送ってください。', 'err'); }
     } else {
-      setMsg('このブラウザは画像の共有に未対応です。「端末に保存」してからLINEで送ってください。', 'err');
+      setMsg('このブラウザは画像の共有に未対応です。「端末に保存」してから送ってください。', 'err');
     }
   });
 
