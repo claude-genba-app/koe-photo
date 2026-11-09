@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>声で写真に文字入れ</title>
+<meta name="theme-color" content="#e8590c">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#f4f2ee; --card:#ffffff; --ink:#1d1d1b; --sub:#6b6862; --line:#e2ded6;
+    --accent:#e8590c; --accent-ink:#fff; --ok:#2b8a3e;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#161614; --card:#22211f; --ink:#f1efe9; --sub:#a7a39b; --line:#36342f; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Noto Sans CJK JP","Noto Sans JP","Hiragino Sans",system-ui,sans-serif;font-size:16px;line-height:1.6}
+  .wrap{max-width:560px;margin:0 auto;padding:16px 14px 48px}
+  h1{font-size:20px;margin:4px 0 2px}
+  .lead{color:var(--sub);font-size:13px;margin:0 0 14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+  .step{display:flex;align-items:center;gap:8px;font-weight:700;margin-bottom:10px}
+  .num{width:24px;height:24px;border-radius:50%;background:var(--accent);color:var(--accent-ink);
+    display:grid;place-items:center;font-size:13px;flex:none}
+  .row{display:flex;gap:8px;flex-wrap:wrap}
+  .btn{appearance:none;border:1px solid var(--line);background:var(--card);color:var(--ink);
+    font:inherit;font-weight:700;padding:12px 14px;border-radius:10px;flex:1;min-width:130px;
+    text-align:center;cursor:pointer;position:relative}
+  .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  .btn:disabled{opacity:.45}
+  .btn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+  textarea{width:100%;min-height:96px;font:inherit;font-size:17px;padding:10px;border-radius:10px;
+    border:1px solid var(--line);background:var(--bg);color:var(--ink);resize:vertical}
+  .hint{font-size:13px;color:var(--sub);margin:8px 0 0}
+  .hint b{color:var(--ink)}
+  .seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:4px}
+  .seg button{flex:1;border:0;background:transparent;color:var(--ink);font:inherit;font-size:14px;padding:9px 4px;cursor:pointer}
+  .seg button+button{border-left:1px solid var(--line)}
+  .seg button.on{background:var(--ink);color:var(--card);font-weight:700}
+  .opt{margin-top:12px}
+  .opt label{font-size:13px;color:var(--sub)}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  .check{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:15px}
+  .check input{width:20px;height:20px;accent-color:var(--accent)}
+  .preview{display:block;width:100%;height:auto;border-radius:10px;background:#0002;touch-action:none;cursor:grab}
+  .preview.dragging{cursor:grabbing;outline:3px solid var(--accent);outline-offset:2px}
+  .empty{border:2px dashed var(--line);border-radius:10px;padding:36px 10px;text-align:center;color:var(--sub);font-size:14px}
+  .msg{font-size:13px;margin-top:8px;min-height:1.2em}
+  .msg.ok{color:var(--ok)} .msg.err{color:var(--accent)}
+  .result img{width:100%;border-radius:10px;display:block;margin-top:8px;-webkit-touch-callout:default}
+  .hidden{display:none}
+  .mic{width:100%;font-size:18px;padding:16px;margin-bottom:8px}
+  .mic.rec{background:#c92a2a;border-color:#c92a2a;animation:pulse 1.2s infinite}
+  @keyframes pulse{50%{opacity:.7}}
+  .interim{font-size:14px;color:var(--sub);min-height:1.4em;margin-bottom:6px}
+  .hint a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>声で写真に文字入れ</h1>
+  <p class="lead">写真を選んで、しゃべった内容を写真の中に書き込みます。</p>
+
+  <!-- 1 写真 -->
+  <div class="card">
+    <div class="step"><span class="num">1</span>写真をえらぶ</div>
+    <div class="row">
+      <label class="btn primary">📷 カメラで撮る
+        <input id="camIn" type="file" accept="image/*" capture="environment">
+      </label>
+      <button id="libBtn" class="btn" type="button">🖼 写真から選ぶ</button>
+      <input id="libIn" type="file" accept="image/*" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
+    </div>
+    <div id="msg1" class="msg"></div>
+  </div>
+
+  <!-- 2 声 -->
+  <div class="card">
+    <div class="step"><span class="num">2</span>しゃべって文字にする</div>
+    <button id="micBtn" class="btn primary mic" type="button">🎤 押して話す</button>
+    <div id="interim" class="interim"></div>
+    <textarea id="txt" placeholder="話した言葉がここに入ります(手で打ってもOK)"></textarea>
+    <p class="hint">話し終わると自動で止まります。続きはもう一度押して話してください。間違いは手で直せます。
+      <a href="#" id="clearTxt">文字を消す</a></p>
+  </div>
+
+  <!-- 3 見た目 -->
+  <div class="card">
+    <div class="step"><span class="num">3</span>入れ方をえらぶ</div>
+    <div class="opt"><label>位置</label>
+      <div class="seg" id="segPos">
+        <button data-v="top">上</button><button data-v="middle">真ん中</button><button data-v="bottom" class="on">下</button>
+      </div>
+    </div>
+    <div class="opt"><label>スタイル</label>
+      <div class="seg" id="segStyle">
+        <button data-v="dark" class="on">黒帯</button><button data-v="light">白帯</button><button data-v="board">黒板風</button><button data-v="outline">文字だけ</button>
+      </div>
+    </div>
+    <div class="opt"><label>文字の大きさ <span id="sizeVal"></span></label>
+      <input id="size" type="range" min="2" max="10" step="0.5" value="4.5">
+    </div>
+    <label class="check"><input id="dateOn" type="checkbox" checked>撮影日時も入れる</label>
+  </div>
+
+  <!-- 4 プレビュー -->
+  <div class="card">
+    <div class="step"><span class="num">4</span>できあがり</div>
+    <div id="empty" class="empty">まだ写真がありません</div>
+    <p class="hint" style="margin:0 0 8px">👆 写真の上の文字を指でつかんで、好きな位置に動かせます。</p>
+    <canvas id="cv" class="preview hidden"></canvas>
+    <div class="row" style="margin-top:12px">
+      <button id="shareBtn" class="btn primary" disabled>📤 LINEで送る</button>
+      <button id="saveBtn" class="btn" disabled>💾 端末に保存</button>
+    </div>
+    <div id="msg" class="msg"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const cv = $('cv'), ctx = cv.getContext('2d');
+  const state = { img:null, when:null, name:'photo', pos:'bottom', style:'dark' };
+  const MAX = 2400; // 長辺の上限(px)。スマホのメモリ対策
+  const FONT = '"Noto Sans CJK JP","Noto Sans JP","Hiragino Sans",sans-serif';
+
+  function msg1(t, kind){ const m = $('msg1'); m.textContent = t; m.className = 'msg ' + (kind || ''); }
+
+  function loadImg(f){
+    return new Promise((res, rej) => {
+      const url = URL.createObjectURL(f);
+      const im = new Image();
+      im.onload = () => res(im);
+      im.onerror = rej;
+      im.src = url;
+    });
+  }
+
+  async function pickFile(e){
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    msg1('読み込み中…');
+    state.when = new Date(f.lastModified || Date.now());
+    state.name = (f.name || 'photo').replace(/\.[^.]+$/, '');
+    let im = null;
+    try { im = await loadImg(f); }
+    catch (_) {
+      // Image で読めない形式は createImageBitmap で再挑戦
+      try {
+        const bmp = await createImageBitmap(f);
+        const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+        c.getContext('2d').drawImage(bmp, 0, 0);
+        im = await new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = c.toDataURL('image/jpeg', 0.95); });
+      } catch (__) { im = null; }
+    }
+    e.target.value = '';
+    if (!im) { msg1('この写真は読み込めませんでした(形式:' + (f.type || '不明') + ')。別の写真か、カメラで撮って試してください。', 'err'); return; }
+    msg1('写真を読み込みました。', 'ok');
+    state.img = im; draw();
+  }
+  $('camIn').addEventListener('change', pickFile);
+  $('libIn').addEventListener('change', pickFile);
+  $('libBtn').addEventListener('click', () => $('libIn').click());
+
+  function seg(id, key){
+    $(id).addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      [...$(id).children].forEach(x => x.classList.toggle('on', x === b));
+      state[key] = b.dataset.v;
+      if (key === 'pos') state.custom = null; // 位置ボタンを押したら指で動かした位置はリセット
+      draw();
+    });
+  }
+  seg('segPos', 'pos'); seg('segStyle', 'style');
+  $('txt').addEventListener('input', draw);
+  $('size').addEventListener('input', draw);
+  $('dateOn').addEventListener('change', draw);
+
+  // 指(マウス)で文字を動かす
+  let drag = null, raf = 0;
+  function toCanvas(e){
+    const r = cv.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * cv.width / r.width, y: (e.clientY - r.top) * cv.height / r.height };
+  }
+  cv.addEventListener('pointerdown', e => {
+    const b = state.box; if (!b) return;
+    const p = toCanvas(e);
+    // 文字の枠の少し外側までつかめるようにする
+    const tol = cv.width / cv.getBoundingClientRect().width * 24;
+    if (p.x < b.x - tol || p.x > b.x + b.w + tol || p.y < b.y - tol || p.y > b.y + b.h + tol) return;
+    drag = { dx: p.x - b.x, dy: p.y - b.y, id: e.pointerId };
+    cv.setPointerCapture(e.pointerId);
+    cv.classList.add('dragging');
+    [...$('segPos').children].forEach(x => x.classList.remove('on'));
+    e.preventDefault();
+  });
+  cv.addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const p = toCanvas(e);
+    state.custom = { x: Math.round(p.x - drag.dx), y: Math.round(p.y - drag.dy) };
+    if (!raf) raf = requestAnimationFrame(() => { raf = 0; draw(); });
+    e.preventDefault();
+  });
+  function endDrag(e){
+    if (!drag || e.pointerId !== drag.id) return;
+    drag = null; cv.classList.remove('dragging');
+    // 画面外にはみ出した分は draw() で補正済みなので、その位置を保存
+    if (state.box) state.custom = { x: state.box.x, y: state.box.y };
+  }
+  cv.addEventListener('pointerup', endDrag);
+  cv.addEventListener('pointercancel', endDrag);
+
+  function fmtDate(d){
+    const p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}/${p(d.getMonth()+1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+
+  // 日本語は1文字ずつ折り返す(英単語はなるべく切らない)
+  function wrap(text, maxW){
+    const lines = [];
+    for (const para of text.split('\n')) {
+      if (para === '') { lines.push(''); continue; }
+      let line = '';
+      const tokens = para.match(/[A-Za-z0-9.,'\-]+|\s+|./gu) || [];
+      for (const t of tokens) {
+        const test = line + t;
+        if (ctx.measureText(test).width <= maxW || line === '') {
+          if (ctx.measureText(t).width > maxW) { // 長すぎる英単語は文字単位
+            for (const ch of t) {
+              if (ctx.measureText(line + ch).width > maxW && line) { lines.push(line); line = ch; }
+              else line += ch;
+            }
+          } else line = test;
+        } else { lines.push(line.trimEnd()); line = t.trimStart(); }
+      }
+      lines.push(line);
+    }
+    return lines;
+  }
+
+  function roundRect(x, y, w, h, r){
+    ctx.beginPath();
+    ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r); ctx.arcTo(x+w, y+h, x, y+h, r);
+    ctx.arcTo(x, y+h, x, y, r); ctx.arcTo(x, y, x+w, y, r); ctx.closePath();
+  }
+
+  function draw(){
+    $('sizeVal').textContent = '';
+    if (!state.img) return;
+    const im = state.img;
+    const s = Math.min(1, MAX / Math.max(im.naturalWidth, im.naturalHeight));
+    const W = Math.round(im.naturalWidth * s), H = Math.round(im.naturalHeight * s);
+    cv.width = W; cv.height = H;
+    ctx.drawImage(im, 0, 0, W, H);
+
+    const base = Math.min(W, H);
+    const fs = Math.round(base * parseFloat($('size').value) / 100);
+    const pad = Math.round(fs * 0.6);
+    const text = $('txt').value.trim();
+    const dateTxt = $('dateOn').checked && state.when ? fmtDate(state.when) : '';
+
+    $('empty').classList.add('hidden'); cv.classList.remove('hidden');
+    $('saveBtn').disabled = false;
+    $('shareBtn').disabled = false;
+
+    if (!text && !dateTxt) { state.box = null; refreshOut(); return; }
+
+    const st = state.style;
+    const fullWidth = st === 'dark' || st === 'light'; // 帯は横幅いっぱい(上下だけ動く)
+    let boxW = st === 'board' ? Math.round(W * 0.62) : W;
+    const maxTextW = boxW - pad * 2;
+    ctx.font = `700 ${fs}px ${FONT}`;
+    const lines = text ? wrap(text, maxTextW) : [];
+    const lh = Math.round(fs * 1.35);
+    const dfs = Math.round(fs * 0.62), dlh = Math.round(dfs * 1.5);
+    const blockH = lines.length * lh + (dateTxt ? dlh : 0);
+    const boxH = blockH + pad * 2;
+    if (st === 'outline') {
+      let mw = 0;
+      for (const ln of lines) mw = Math.max(mw, ctx.measureText(ln).width);
+      if (dateTxt) { ctx.font = `500 ${dfs}px ${FONT}`; mw = Math.max(mw, ctx.measureText(dateTxt).width); ctx.font = `700 ${fs}px ${FONT}`; }
+      boxW = Math.min(W, Math.ceil(mw) + pad * 2);
+    }
+
+    let bx = 0, by;
+    const m = st === 'board' ? Math.round(base * 0.03) : 0;
+    if (state.custom) {
+      bx = fullWidth ? 0 : state.custom.x;
+      by = state.custom.y;
+    } else {
+      bx = fullWidth ? 0 : state.pos === 'middle' ? Math.round((W - boxW) / 2) : m;
+      by = state.pos === 'top' ? m : state.pos === 'middle' ? Math.round((H - boxH) / 2) : H - boxH - m;
+    }
+    bx = Math.max(0, Math.min(W - boxW, bx));
+    by = Math.max(0, Math.min(H - boxH, by));
+    state.box = { x: bx, y: by, w: boxW, h: boxH, full: fullWidth };
+
+    let fg = '#fff', stroke = null;
+    if (st === 'dark') { ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(bx, by, boxW, boxH); }
+    else if (st === 'light') { ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fillRect(bx, by, boxW, boxH); fg = '#111'; }
+    else if (st === 'board') {
+      const r = Math.round(fs * 0.3), fr = Math.max(4, Math.round(fs * 0.22));
+      ctx.fillStyle = '#7a4f2a'; roundRect(bx, by, boxW, boxH, r); ctx.fill();
+      ctx.fillStyle = '#1f4d36'; roundRect(bx+fr, by+fr, boxW-fr*2, boxH-fr*2, r*0.6); ctx.fill();
+    } else { stroke = 'rgba(0,0,0,0.85)'; }
+
+    ctx.textBaseline = 'top';
+    ctx.textAlign = st === 'board' ? 'left' : 'left';
+    let y = by + pad;
+    const tx = bx + pad;
+    ctx.font = `700 ${fs}px ${FONT}`;
+    for (const ln of lines) {
+      if (stroke) { ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(3, fs * 0.18); ctx.strokeStyle = stroke; ctx.strokeText(ln, tx, y + fs * 0.1); }
+      ctx.fillStyle = fg; ctx.fillText(ln, tx, y + fs * 0.1);
+      y += lh;
+    }
+    if (dateTxt) {
+      ctx.font = `500 ${dfs}px ${FONT}`;
+      if (stroke) { ctx.lineWidth = Math.max(2, dfs * 0.18); ctx.strokeStyle = stroke; ctx.strokeText(dateTxt, tx, y + dfs * 0.2); }
+      ctx.fillStyle = st === 'light' ? '#444' : 'rgba(255,255,255,0.85)';
+      ctx.fillText(dateTxt, tx, y + dfs * 0.2);
+    }
+    refreshOut();
+  }
+
+  function refreshOut(){}
+
+  function setMsg(t, kind){ const m = $('msg'); m.textContent = t; m.className = 'msg ' + (kind || ''); }
+
+  // ---- 音声入力 ----
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec = null, recording = false;
+  if (!SR) {
+    $('micBtn').textContent = '🎤 このブラウザは音声入力に未対応(キーボードの🎤を使ってください)';
+    $('micBtn').disabled = true;
+  }
+  $('micBtn').addEventListener('click', () => {
+    if (!SR) return;
+    if (recording) { rec && rec.stop(); return; }
+    rec = new SR();
+    rec.lang = 'ja-JP';
+    rec.interimResults = true;
+    rec.continuous = false;
+    rec.onstart = () => { recording = true; $('micBtn').classList.add('rec'); $('micBtn').textContent = '● 聞いています…(押すと止まる)'; };
+    rec.onresult = e => {
+      let fin = '', mid = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) fin += t; else mid += t;
+      }
+      $('interim').textContent = mid;
+      if (fin) {
+        const ta = $('txt');
+        ta.value = ta.value ? ta.value.replace(/\s+$/, '') + '\n' + fin : fin;
+        $('interim').textContent = '';
+        draw();
+      }
+    };
+    rec.onerror = e => {
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') setMsg2('マイクの使用が許可されていません。ブラウザの設定でマイクを許可してください。');
+      else if (e.error === 'no-speech') setMsg2('声が聞き取れませんでした。もう一度押して話してください。');
+      else if (e.error === 'network') setMsg2('音声入力には電波が必要です。電波のある場所で試すか、キーボードの🎤を使ってください。');
+    };
+    rec.onend = () => { recording = false; $('micBtn').classList.remove('rec'); $('micBtn').textContent = '🎤 押して話す'; $('interim').textContent = ''; };
+    setMsg2('');
+    try { rec.start(); } catch (_) {}
+  });
+  function setMsg2(t){ $('interim').textContent = t; }
+  $('clearTxt').addEventListener('click', e => { e.preventDefault(); $('txt').value = ''; draw(); });
+
+  // ---- 共有・保存 ----
+  const toBlob = () => new Promise(r => cv.toBlob(r, 'image/jpeg', 0.92));
+  const fileName = () => `${state.name}_文字入り.jpg`;
+
+  $('shareBtn').addEventListener('click', async () => {
+    if (!state.img) return;
+    const b = await toBlob();
+    const file = new File([b], fileName(), { type: 'image/jpeg' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file] }); setMsg('送信画面を開きました。', 'ok'); }
+      catch (e) { if (e.name !== 'AbortError') setMsg('共有できませんでした。「端末に保存」してからLINEで送ってください。', 'err'); }
+    } else {
+      setMsg('このブラウザは画像の共有に未対応です。「端末に保存」してからLINEで送ってください。', 'err');
+    }
+  });
+
+  $('saveBtn').addEventListener('click', async () => {
+    if (!state.img) return;
+    const b = await toBlob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(b);
+    a.download = fileName();
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    setMsg('保存しました(「ダウンロード」フォルダに入ります)。', 'ok');
+  });
+
+  // ---- オフラインで動かすための登録 ----
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+})();
+</script>
+</body>
+</html>
