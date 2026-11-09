@@ -4,17 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>声で写真に文字入れ</title>
-<meta name="theme-color" content="#e8590c">
+<meta name="theme-color" content="#1f45a8">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
   :root{
-    --bg:#f4f2ee; --card:#ffffff; --ink:#1d1d1b; --sub:#6b6862; --line:#e2ded6;
-    --accent:#e8590c; --accent-ink:#fff; --ok:#2b8a3e;
+    --bg:#f1f4fa; --card:#ffffff; --ink:#1d1d1b; --sub:#5f6677; --line:#d9e0ee;
+    --accent:#1f45a8; --accent-ink:#fff; --ok:#2b8a3e;
   }
   @media (prefers-color-scheme: dark){
-    :root{ --bg:#161614; --card:#22211f; --ink:#f1efe9; --sub:#a7a39b; --line:#36342f; }
+    :root{ --bg:#10141d; --card:#1a2030; --ink:#eef1f7; --sub:#a3abbd; --line:#2e3750; --accent:#4f74d6; }
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);
@@ -40,7 +40,7 @@
   .seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:4px}
   .seg button{flex:1;border:0;background:transparent;color:var(--ink);font:inherit;font-size:14px;padding:9px 4px;cursor:pointer}
   .seg button+button{border-left:1px solid var(--line)}
-  .seg button.on{background:var(--ink);color:var(--card);font-weight:700}
+  .seg button.on{background:var(--accent);color:#fff;font-weight:700}
   .opt{margin-top:12px}
   .opt label{font-size:13px;color:var(--sub)}
   input[type=range]{width:100%;accent-color:var(--accent)}
@@ -50,7 +50,7 @@
   .preview.dragging{cursor:grabbing;outline:3px solid var(--accent);outline-offset:2px}
   .empty{border:2px dashed var(--line);border-radius:10px;padding:36px 10px;text-align:center;color:var(--sub);font-size:14px}
   .msg{font-size:13px;margin-top:8px;min-height:1.2em}
-  .msg.ok{color:var(--ok)} .msg.err{color:var(--accent)}
+  .msg.ok{color:var(--ok)} .msg.err{color:#c92a2a}
   .result img{width:100%;border-radius:10px;display:block;margin-top:8px;-webkit-touch-callout:default}
   .hidden{display:none}
   .mic{width:100%;font-size:18px;padding:16px;margin-bottom:8px}
